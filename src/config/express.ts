@@ -1,6 +1,5 @@
 import express from 'express';
 import morgan from 'morgan';
-import swaggerUi from 'swagger-ui-express';
 import Router from '../routes';
 
 const createServer = (): express.Application => {
@@ -10,15 +9,15 @@ const createServer = (): express.Application => {
   app.use(morgan('tiny'));
   app.use(express.static('public'));
 
-  app.use(
-    '/docs',
-    swaggerUi.serve,
-    swaggerUi.setup(undefined, {
-      swaggerOptions: {
-        url: '/swagger.json',
-      },
-    })
-  );
+  // app.use(
+  //   '/docs',
+  //   swaggerUi.serve,
+  //   swaggerUi.setup(undefined, {
+  //     swaggerOptions: {
+  //       url: '/swagger.json',
+  //     },
+  //   })
+  // );
 
   app.use(Router);
 
