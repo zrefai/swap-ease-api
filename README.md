@@ -1,3 +1,3 @@
-Run `yarn dev`, it should fail because DB isnt setup
+Run `yarn build` to build the project
 
-Run `yarn start`, should open server on port 8000
+Run `yarn dev`, it should fail because DB isnt setup
