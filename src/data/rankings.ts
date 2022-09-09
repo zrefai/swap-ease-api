@@ -57,7 +57,6 @@ export const getSortedRanking = async (
   startIndex: number,
   pageCount: number
 ): Promise<WithId<NFTCollectionRanking> | null> => {
-  console.log(`Getting $slice [${startIndex}, ${startIndex + pageCount}]`);
   const slicedSortedRanking = await getCollection()
     .find(
       { contractAddress },

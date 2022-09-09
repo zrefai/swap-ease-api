@@ -25,7 +25,6 @@ export default async function getSortedRankingHandler(
   if (totalSupply !== undefined) {
     const nextIndex = startIndexNumber + PAGE_COUNT;
 
-    console.log(document?.sortedRanking.length);
     return {
       nfts: document?.sortedRanking ?? [],
       nextIndex: nextIndex <= totalSupply ? nextIndex : undefined,

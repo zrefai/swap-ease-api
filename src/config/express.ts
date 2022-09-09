@@ -9,16 +9,6 @@ const createServer = (): express.Application => {
   app.use(morgan('tiny'));
   app.use(express.static('public'));
 
-  // app.use(
-  //   '/docs',
-  //   swaggerUi.serve,
-  //   swaggerUi.setup(undefined, {
-  //     swaggerOptions: {
-  //       url: '/swagger.json',
-  //     },
-  //   })
-  // );
-
   app.use(Router);
 
   return app;

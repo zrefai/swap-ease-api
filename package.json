@@ -5,11 +5,8 @@
   "license": "MIT",
   "scripts": {
     "start": "node build/index.js",
-    "predev": "npm run swagger",
-    "prebuild": "npm run swagger",
     "build": "tsc",
-    "dev": "concurrently \"nodemon\" \"nodemon -x tsoa spec\"",
-    "swagger": "tsoa spec"
+    "dev": "nodemon"
   },
   "nodemonConfig": {
     "watch": [
@@ -40,7 +37,6 @@
     "mongodb": "^4.9.0",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
-    "reflect-metadata": "^0.1.13",
-    "tsoa": "^4.1.1"
+    "reflect-metadata": "^0.1.13"
   }
 }
