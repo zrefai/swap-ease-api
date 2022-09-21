@@ -1,7 +1,6 @@
-import './routes';
 import dbClient from './config/swap-ease-db-client';
-import { createServer } from './config/express';
 import { MongoClient } from 'mongodb';
+import { createServer } from './config/express';
 
 require('dotenv').config();
 
@@ -21,8 +20,6 @@ verifyEnvVariables([
   'MONGO_DB_NAME',
   'ALCHEMY_API_KEY',
   'ALCHEMY_API_NFT_URL',
-  'CERT_FILE',
-  'CERT_PASS',
 ]);
 
 async function startServer(db: MongoClient) {

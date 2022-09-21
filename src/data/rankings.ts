@@ -1,6 +1,6 @@
-import { Collection, UpdateResult, WithId } from 'mongodb';
-import { db } from '../config/swap-ease-db-client';
-import { NFTCollectionRanking } from '../models/nft-collection-ranking';
+import { db } from '@server/config/swap-ease-db-client';
+import { NFTCollectionRanking } from '@server/models/nft-collection-ranking';
+import { Collection, WithId, UpdateResult } from 'mongodb';
 import auditModels from './audit-models';
 
 const getCollection = () =>
@@ -9,28 +9,14 @@ const getCollection = () =>
 export const insertOne = async (
   document: NFTCollectionRanking
 ): Promise<boolean> => {
-  const collection = getCollection();
-  const currentRanking = await findOne(document.contractAddress);
-
-  if (currentRanking === null) {
-    const result = await auditModels.insertOne(collection, document);
-    return result?.insertedId?.toString()?.length > 0;
-  } else if (document.accuracy > currentRanking.accuracy) {
-    const updatedResult = await updateOne(document);
-    return updatedResult.upsertedId?.toString()?.length > 0;
-  }
-
-  return false;
+  const result = await auditModels.insertOne(getCollection(), document);
+  return result?.insertedId?.toString()?.length > 0;
 };
 
 export const findOne = async (
-  contractAddress: string,
-  getSortedRanking = 0
+  contractAddress: string
 ): Promise<WithId<NFTCollectionRanking> | null> => {
-  return await getCollection().findOne(
-    { contractAddress },
-    { projection: { sortedRanking: getSortedRanking } }
-  );
+  return await getCollection().findOne({ contractAddress });
 };
 
 export const updateOne = async (
@@ -43,7 +29,6 @@ export const updateOne = async (
         traits: document.traits,
         traitScores: document.traitScores,
         accuracy: document.accuracy,
-        sortedRanking: document.sortedRanking,
         dateUpdatedUtc: new Date(),
       },
     }
@@ -52,31 +37,8 @@ export const updateOne = async (
   return updatedResult;
 };
 
-export const getSortedRanking = async (
-  contractAddress: string,
-  startIndex: number,
-  pageCount: number
-): Promise<WithId<NFTCollectionRanking> | null> => {
-  const slicedSortedRanking = await getCollection()
-    .find(
-      { contractAddress },
-      {
-        projection: {
-          contractMetadata: 1,
-          sortedRanking: {
-            $slice: [startIndex, pageCount],
-          },
-        },
-      }
-    )
-    .toArray();
-
-  return slicedSortedRanking[0];
-};
-
 export default {
   insertOne,
   findOne,
   updateOne,
-  getSortedRanking,
 };

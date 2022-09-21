@@ -4,35 +4,19 @@ import { NFT } from '../models/nft';
 import { GetNFTsForCollectionResponse } from '../models/responses/get-nfts-for-collection-response';
 import { NFTResponse } from '../models/responses/nft-response';
 import callWithRetry from '../utils/call-with-retry';
+import {
+  IAlchemyNFTApi,
+  IGetContractMetadata,
+  IGetNftForCollection,
+  IGetNFTMetadata,
+} from './alchemy-nft-api.interfaces';
 import { getNFTMetadataMapper } from './mappers/get-nft-metadata-mapper';
 import { getNFTsForCollectionMapper } from './mappers/get-nfts-for-collection-mapper';
-
-export enum TokenType {
-  ERC721 = 'ERC721',
-  ERC1155 = 'ERC1155',
-}
-
-interface IGetNftForCollection {
-  contractAddress: string;
-  withMetadata?: string;
-  startToken?: string;
-}
-
-interface IGetNFTMetadata {
-  contractAddress: string;
-  tokenId: string;
-  tokenType: TokenType;
-  refreshCache?: boolean;
-}
-
-interface IGetContractMetadata {
-  contractAddress: string;
-}
 
 const START_TOKEN =
   '0x0000000000000000000000000000000000000000000000000000000000000001';
 
-export default class AlchemyNFTApi {
+export default class AlchemyNFTApi implements IAlchemyNFTApi {
   alchemySdk: any;
   apiKey: string | undefined;
 
@@ -52,6 +36,10 @@ export default class AlchemyNFTApi {
   async getContractMetadata({
     contractAddress,
   }: IGetContractMetadata): Promise<GetContractMetadata> {
+    if (contractAddress === undefined) {
+      throw new Error('getContractMetadata -- Contract address cannot be null');
+    }
+
     this.initialize();
 
     try {
@@ -67,9 +55,13 @@ export default class AlchemyNFTApi {
 
   async getNFTsForCollection({
     contractAddress,
-    withMetadata = 'true',
+    withMetadata = true,
     startToken = START_TOKEN,
   }: IGetNftForCollection): Promise<GetNFTsForCollection> {
+    if (contractAddress === undefined) {
+      throw new Error('getNFTsForCollection -- ContractAddress is undefined');
+    }
+
     this.initialize();
 
     const callback = async () => {
@@ -85,7 +77,7 @@ export default class AlchemyNFTApi {
       callback
     );
 
-    return getNFTsForCollectionMapper(response);
+    return getNFTsForCollectionMapper(response, withMetadata);
   }
 
   async getNFTMetadata({
@@ -94,14 +86,17 @@ export default class AlchemyNFTApi {
     tokenType,
     refreshCache = false,
   }: IGetNFTMetadata): Promise<NFT> {
-    this.initialize();
-
+    if (contractAddress === undefined) {
+      throw new Error('getNFTMetadata -- ContractAddress is undefined');
+    }
     if (tokenId === undefined) {
       throw new Error('getNFTMetadata -- TokenId is undefined');
     }
     if (tokenType === undefined) {
       throw new Error('getNFTMetadata -- TokenType is undefined');
     }
+
+    this.initialize();
 
     const callback = async () => {
       return await this.alchemySdk.getNFTMetadata({
@@ -114,6 +109,12 @@ export default class AlchemyNFTApi {
     };
 
     const response: NFTResponse = await callWithRetry(callback);
+
+    if (response === undefined) {
+      throw new Error(
+        `NFT metadata came back as undefined -- contractAddress: ${contractAddress}, tokenId: ${tokenId}`
+      );
+    }
 
     return getNFTMetadataMapper(response);
   }

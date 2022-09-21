@@ -3,14 +3,14 @@ import {
   NFTMetadataResponse,
   NFTResponse,
 } from '../../models/responses/nft-response';
-import { TokenType } from '../alchemy-nft-api';
+import { TokenType } from '../alchemy-nft-api.interfaces';
 
 export function getNFTMetadataMapper(nftMetadataResponse: NFTResponse): NFT {
   const metadata = mapMetadata(nftMetadataResponse?.metadata);
 
   return {
     contract: {
-      address: nftMetadataResponse?.contract?.address,
+      address: nftMetadataResponse?.contract.address,
     },
     id: {
       tokenId: nftMetadataResponse?.id.tokenId,
@@ -30,7 +30,7 @@ export function getNFTMetadataMapper(nftMetadataResponse: NFTResponse): NFT {
     contractMetadata: {
       name: nftMetadataResponse?.contractMetadata?.name,
       symbol: nftMetadataResponse?.contractMetadata?.symbol,
-      totalSupply: nftMetadataResponse?.contractMetadata?.totalSupply ?? '0',
+      totalSupply: nftMetadataResponse?.contractMetadata?.totalSupply,
       tokenType: nftMetadataResponse?.contractMetadata?.tokenType as TokenType,
     },
   };

@@ -1,5 +1,5 @@
+import NFTCollectionRankingController from '@server/controllers/nft-collection-ranking.controller';
 import express from 'express';
-import NFTCollectionRankingController from '../controllers/nft-collection-ranking.controller';
 
 const router = express.Router();
 

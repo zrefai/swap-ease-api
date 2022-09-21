@@ -1,4 +1,4 @@
-import { TokenType } from '../nft-api/alchemy-nft-api';
+import { TokenType } from '../nft-api/alchemy-nft-api.interfaces';
 
 export interface NFTContract {
   address: string;
@@ -7,7 +7,7 @@ export interface NFTContract {
 export interface NFTId {
   tokenId: string;
   tokenMetadata: {
-    tokenType: TokenType;
+    tokenType: TokenType | undefined;
   };
 }
 

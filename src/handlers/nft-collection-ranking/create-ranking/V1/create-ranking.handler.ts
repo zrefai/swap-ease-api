@@ -1,10 +1,14 @@
-import { NFT, NFTAttribute } from '../../../../alchemy-api/models/nft';
-import { NFTContractMetadata } from '../../../../alchemy-api/models/nft';
-import AlchemyNFTApi from '../../../../alchemy-api/nft-api/alchemy-nft-api';
-import rankings from '../../../../data/rankings';
-import { NFTCollectionRanking } from '../../../../models/nft-collection-ranking';
-import { NFTRank } from '../../../../models/nft-rank';
-import timer from '../../../../utils/timer';
+import {
+  NFT,
+  NFTAttribute,
+  NFTContractMetadata,
+} from '@server/alchemy-api/models/nft';
+import AlchemyNFTApi from '@server/alchemy-api/nft-api/alchemy-nft-api';
+import { TokenType } from '@server/alchemy-api/nft-api/alchemy-nft-api.interfaces';
+import rankings from '@server/data/rankings';
+import { NFTCollectionRanking } from '@server/models/nft-collection-ranking';
+import { NFTRank } from '@server/models/nft-rank';
+import timer from '@server/utils/timer';
 
 export interface NFTCollectionRankingResponse {
   contractAddress: string;
@@ -62,7 +66,7 @@ export default async function createRankingHandler(
       const updatedNFT = await alchemyNftApi.getNFTMetadata({
         contractAddress: nft.contract?.address,
         tokenId: nft.id.tokenId,
-        tokenType: nft.id.tokenMetadata.tokenType,
+        tokenType: nft.id.tokenMetadata.tokenType as TokenType,
       });
       if (nft.metadata.attributes.length > 0) {
         updatedNFT.metadata.attributes.forEach((attribute: NFTAttribute) => {
@@ -113,9 +117,9 @@ export default async function createRankingHandler(
     contractAddress,
     contractMetadata,
     accuracy,
-    traits,
-    traitScores,
-    sortedRanking,
+    // traits,
+    // traitScores,
+    // sortedRanking,
   };
 
   const isInserted = await rankings.insertOne(

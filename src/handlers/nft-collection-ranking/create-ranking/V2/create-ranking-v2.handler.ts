@@ -1,109 +1,83 @@
-import chunk from 'lodash.chunk';
-import { GetNFTsForCollection } from '../../../../alchemy-api/models/get-nfts-for-collection';
+import { GetNFTsForCollection } from '@server/alchemy-api/models/get-nfts-for-collection';
 import {
+  NFTContractMetadata,
   NFT,
   NFTAttribute,
-  NFTContractMetadata,
-} from '../../../../alchemy-api/models/nft';
-import AlchemyNFTApi, {
-  TokenType,
-} from '../../../../alchemy-api/nft-api/alchemy-nft-api';
-import rankings from '../../../../data/rankings';
-import { NFTCollectionRanking } from '../../../../models/nft-collection-ranking';
-import { NFTRank } from '../../../../models/nft-rank';
+} from '@server/alchemy-api/models/nft';
+import AlchemyNFTApi from '@server/alchemy-api/nft-api/alchemy-nft-api';
+import { TokenType } from '@server/alchemy-api/nft-api/alchemy-nft-api.interfaces';
+import { rankingInsertOrUpdate } from '@server/data/helpers/ranking-insert-or-update';
+import rankings from '@server/data/rankings';
+import { NFTCollectionRanking } from '@server/models/nft-collection-ranking';
+import { NFTRank } from '@server/models/nft-rank';
+import { NFTSortedRanking } from '@server/models/nft-sorted-ranking';
+import timer from '@server/utils/timer';
+import chunk from 'lodash.chunk';
 import { NFTCollectionRankingResponse } from '../V1/create-ranking.handler';
+
+const COLLECTION_CHUNK = 5;
+const NFT_CHUNK = 25;
 
 export default async function createRankingV2Handler(
   contractAddress: string
 ): Promise<NFTCollectionRankingResponse> {
-  // TODO: remodel after alchemy summary and prevelance scores
-  // TODO: check current accuracy before running?
-  // TODO: find out why accuracy goes above 100%
-  const alchemyNftApi = new AlchemyNFTApi();
+  const currentRanking = await rankings.findOne(contractAddress);
 
-  const contractMetadataResponse = await alchemyNftApi.getContractMetadata({
+  if (currentRanking?.accuracy === 100) {
+    return {
+      error:
+        'Accuracy is already at 100% for this collection, no need to re-rank this collection',
+    } as NFTCollectionRankingResponse;
+  }
+
+  const alchemyNFTApi = new AlchemyNFTApi();
+
+  const contractMetadataResponse = await alchemyNFTApi.getContractMetadata({
     contractAddress,
   });
 
   const totalSupply =
-    contractMetadataResponse.contractMetadata.totalSupply !== undefined
+    contractMetadataResponse.contractMetadata.totalSupply !== undefined &&
+    contractMetadataResponse.contractMetadata.totalSupply.length > 0
       ? parseInt(contractMetadataResponse.contractMetadata.totalSupply)
       : undefined;
-  const tokenType = contractMetadataResponse.contractMetadata.tokenType;
+  const tokenType =
+    contractMetadataResponse.contractMetadata.tokenType &&
+    contractMetadataResponse.contractMetadata.tokenType.length > 0
+      ? contractMetadataResponse.contractMetadata.tokenType
+      : undefined;
+
+  // TODO: can get total supply from etherscan API
 
   if (totalSupply !== undefined && totalSupply !== 0 && tokenType) {
     const chunkedPromises = batchCollectionPromises(
       contractAddress,
       totalSupply,
-      alchemyNftApi
+      alchemyNFTApi
     );
 
     const nfts = await resolveCollectionPromises(chunkedPromises);
 
-    async function refetchMissingNFTs(
-      batchedNFTPromises: Promise<NFT>[][],
-      depth = 0
-    ): Promise<void> {
-      console.log('Refetch per depth:', toRefetch.length);
-      if (batchedNFTPromises.length === 0 || depth > 2) {
-        return;
-      }
-
-      for (let i = 0; i < batchedNFTPromises.length; ++i) {
-        await Promise.all(batchedNFTPromises[i]).then((data: NFT[]) => {
-          for (let i = 0; i < data.length; ++i) {
-            const value = data[i];
-
-            if (value.id.tokenId && value.metadata.attributes.length > 0) {
-              value.metadata.attributes.forEach((attribute: NFTAttribute) => {
-                if (attribute.value in traits) {
-                  traits[attribute.value] += 1;
-                } else {
-                  traits[attribute.value] = 1;
-                }
-              });
-
-              validNFTs += 1;
-              nfts[value.id.tokenId] = value;
-
-              // Remove id since it retrieved properly
-              const tokenIndex = toRefetch.indexOf(value.id.tokenId);
-
-              if (tokenIndex > -1) {
-                toRefetch = toRefetch.splice(tokenIndex, 1);
-              }
-            }
-          }
-        });
-      }
-
-      const newBatchedNFTsToRefetch = batchNFTMetadataPromises(
-        contractAddress,
-        tokenType as TokenType,
-        toRefetch,
-        alchemyNftApi
-      );
-      await refetchMissingNFTs(newBatchedNFTsToRefetch, depth + 1);
-    }
-
     const generatedData = generateDataAndNFTsToRefetch(totalSupply, nfts);
 
-    const traits = { ...generatedData.traits };
-    let toRefetch = [...generatedData.idsToRefetch];
-    let validNFTs = generatedData.validNFTs;
+    console.log('Valid Collection NFTs:', generatedData.validNFTs);
 
-    console.log(validNFTs);
+    const validCollectionNFTs = (generatedData.validNFTs / totalSupply) * 100;
+    if (validCollectionNFTs < 70) {
+      return {
+        error: `Accuracy for fetched collection NFTs was ${validCollectionNFTs}, should be over 70%. Please try to create a ranking at a later time.`,
+      } as NFTCollectionRankingResponse;
+    }
 
-    const batchedNFTsToRefetch = batchNFTMetadataPromises(
+    const { collection, traits, validNFTs } = await refetchMissingNFTs(
       contractAddress,
+      generatedData,
       tokenType as TokenType,
-      toRefetch,
-      alchemyNftApi
+      alchemyNFTApi,
+      nfts
     );
 
-    await refetchMissingNFTs(batchedNFTsToRefetch);
-
-    console.log(validNFTs);
+    console.log('Valid Collection NFTs after refetch:', validNFTs);
 
     const accuracy = parseFloat(((validNFTs / totalSupply) * 100).toFixed(3));
     if (accuracy < 95) {
@@ -112,16 +86,9 @@ export default async function createRankingV2Handler(
       } as NFTCollectionRankingResponse;
     }
 
-    const traitScores: { [key: string]: number } = {};
+    const traitScores = generateTraitScores(totalSupply, traits);
 
-    // Create score for each trait
-    Object.keys(traits).forEach((key: string) => {
-      traitScores[key] = parseFloat(
-        (1 / (traits[key] / totalSupply)).toFixed(3)
-      );
-    });
-
-    const sortedRanking = assignAndSort(traitScores, Object.values(nfts));
+    const sortedRanking = assignAndSort(traitScores, Object.values(collection));
 
     const contractMetadata: NFTContractMetadata = {
       name: contractMetadataResponse?.contractMetadata.name,
@@ -131,23 +98,25 @@ export default async function createRankingV2Handler(
     };
 
     const newNFTCollectionRanking: Partial<NFTCollectionRanking> = {
+      _id: contractAddress,
       contractAddress,
       contractMetadata,
       accuracy,
       traits,
       traitScores,
+    };
+
+    const newSortedRanking: NFTSortedRanking = {
+      _id: contractAddress,
+      contractAddress,
       sortedRanking,
     };
 
-    const isInserted = await rankings.insertOne(
-      newNFTCollectionRanking as NFTCollectionRanking
+    await rankingInsertOrUpdate(
+      currentRanking,
+      newNFTCollectionRanking as NFTCollectionRanking,
+      newSortedRanking
     );
-
-    if (!isInserted) {
-      return {
-        error: `Could not add new collection ranking for ${contractMetadata?.name}: ${accuracy}% accuracy`,
-      } as NFTCollectionRankingResponse;
-    }
 
     return {
       accuracy,
@@ -176,7 +145,7 @@ function batchCollectionPromises(
     promises.push(requestCollection());
   }
 
-  return chunk(promises, 10);
+  return chunk(promises, COLLECTION_CHUNK);
 }
 
 function batchNFTMetadataPromises(
@@ -198,7 +167,7 @@ function batchNFTMetadataPromises(
     promises.push(requestNFTMetadata());
   }
 
-  return chunk(promises, 10);
+  return chunk(promises, NFT_CHUNK);
 }
 
 async function resolveCollectionPromises(
@@ -217,6 +186,7 @@ async function resolveCollectionPromises(
     );
 
     nfts.push(...reducedNFTs);
+    await timer(2000);
   }
 
   const reducedNFTs: { [key: string]: NFT } = {};
@@ -226,11 +196,95 @@ async function resolveCollectionPromises(
   return reducedNFTs;
 }
 
+async function refetchMissingNFTs(
+  contractAddress: string,
+  generatedData: GenerateDataAndNFTsToRefetchResponse,
+  tokenType: TokenType,
+  alchemyNFTApi: AlchemyNFTApi,
+  nfts: {
+    [key: string]: NFT;
+  }
+) {
+  const collection = { ...nfts };
+
+  const traits = { ...generatedData.traits };
+  let toRefetch = [...generatedData.idsToRefetch];
+  let validNFTs = generatedData.validNFTs;
+  let depth = 0;
+  let batchedNFTsToRefetch = batchNFTMetadataPromises(
+    contractAddress,
+    tokenType as TokenType,
+    toRefetch,
+    alchemyNFTApi
+  );
+
+  do {
+    // Loop through the batched Promises
+    for (let i = 0; i < batchedNFTsToRefetch.length; ++i) {
+      const resolvedChunk = await Promise.all(batchedNFTsToRefetch[i]);
+
+      // Loop through resolved NFT chunk
+      resolvedChunk.forEach((nft: NFT) => {
+        if (nft.metadata.attributes.length > 0) {
+          // When attributes are valid, count data
+          nft.metadata.attributes.forEach((attribute: NFTAttribute) => {
+            if (attribute.trait_type in traits) {
+              if (attribute.value in traits[attribute.trait_type]) {
+                traits[attribute.trait_type][attribute.value] += 1;
+              } else {
+                traits[attribute.trait_type][attribute.value] = 1;
+              }
+            } else {
+              traits[attribute.trait_type] = {};
+              traits[attribute.trait_type][attribute.value] = 1;
+            }
+          });
+
+          // Re-apply to valid count
+          validNFTs += 1;
+          // Re-assign valid NFT to collection
+          collection[nft.id.tokenId] = nft;
+
+          // Remove valid tokenId
+          const tokenIndex = toRefetch.indexOf(nft.id.tokenId);
+          if (tokenIndex > -1) {
+            toRefetch.splice(tokenIndex, 1);
+          }
+        }
+      });
+    }
+
+    if (toRefetch.length === 0) {
+      break;
+    }
+
+    depth += 1;
+    batchedNFTsToRefetch = batchNFTMetadataPromises(
+      contractAddress,
+      tokenType as TokenType,
+      toRefetch,
+      alchemyNFTApi
+    );
+  } while (depth < 3);
+
+  return {
+    collection,
+    traits,
+    validNFTs,
+  };
+}
+
+interface GenerateDataAndNFTsToRefetchResponse {
+  traits: { [key: string]: { [key: string]: number } };
+  validNFTs: number;
+  idsToRefetch: string[];
+}
+
 function generateDataAndNFTsToRefetch(
   totalSupply: number,
   collection: { [key: string]: NFT }
-) {
-  const traits: { [key: string]: number } = {};
+): GenerateDataAndNFTsToRefetchResponse {
+  const traits: { [key: string]: { [key: string]: number } } = {};
   let validNFTs = totalSupply;
   const idsToRefetch: string[] = [];
 
@@ -239,10 +293,15 @@ function generateDataAndNFTsToRefetch(
     const nft = collection[tokenId];
     if (nft.metadata.attributes.length > 0) {
       nft.metadata.attributes.forEach((attribute: NFTAttribute) => {
-        if (attribute.value in traits) {
-          traits[attribute.value] += 1;
+        if (attribute.trait_type in traits) {
+          if (attribute.value in traits[attribute.trait_type]) {
+            traits[attribute.trait_type][attribute.value] += 1;
+          } else {
+            traits[attribute.trait_type][attribute.value] = 1;
+          }
         } else {
-          traits[attribute.value] = 1;
+          traits[attribute.trait_type] = {};
+          traits[attribute.trait_type][attribute.value] = 1;
         }
       });
     } else {
@@ -258,8 +317,29 @@ function generateDataAndNFTsToRefetch(
   };
 }
 
+function generateTraitScores(
+  totalSupply: number,
+  traits: { [key: string]: { [key: string]: number } }
+): {
+  [key: string]: {
+    [key: string]: number;
+  };
+} {
+  const traitScores: { [key: string]: { [key: string]: number } } = {};
+
+  // Create score for each trait
+  Object.keys(traits).forEach((type: string) => {
+    traitScores[type] = {};
+    Object.keys(traits[type]).forEach((value: string) => {
+      traitScores[type][value] = traits[type][value] / totalSupply;
+    });
+  });
+
+  return traitScores;
+}
+
 function assignAndSort(
-  traitScores: { [key: string]: number },
+  traitScores: { [key: string]: { [key: string]: number } } = {},
   fullCollection: NFT[]
 ): NFTRank[] {
   const assignedNftScores: NFTRank[] = fullCollection.map((nft: NFT) => {
@@ -268,7 +348,7 @@ function assignAndSort(
         tokenId: parseInt(nft.id.tokenId, 16).toString(),
         score: nft.metadata.attributes.reduce(
           (prev: number, curr: Record<string, any>) => {
-            return prev + traitScores[curr.value];
+            return prev + traitScores[curr.trait_type][curr.value];
           },
           0
         ),
@@ -289,7 +369,7 @@ function merge(left: NFTRank[], right: NFTRank[]): NFTRank[] {
   let arr: NFTRank[] = [];
 
   while (left.length && right.length) {
-    if (left[0].score > right[0].score) {
+    if (left[0].score < right[0].score) {
       const shiftedRank = left.shift();
       if (shiftedRank !== undefined) {
         arr.push(shiftedRank);

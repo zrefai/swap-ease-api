@@ -1,5 +1,6 @@
-import rankings from '../../../data/rankings';
-import { NFTRank } from '../../../models/nft-rank';
+import rankings from '@server/data/rankings';
+import sortedRankings from '@server/data/sorted-rankings';
+import { NFTRank } from '@server/models/nft-rank';
 
 export interface NFTSortedRankingResponse {
   nfts: NFTRank[];
@@ -12,14 +13,29 @@ export default async function getSortedRankingHandler(
   contractAddress: string,
   startIndex = '0'
 ): Promise<NFTSortedRankingResponse> {
+  const currentRanking = await rankings.findOne(contractAddress);
+
+  if (currentRanking === null) {
+    throw new Error(
+      "Cannot get ranking for collection that hasn't been processed yet"
+    );
+  }
+
   const startIndexNumber = parseInt(startIndex);
-  const document = await rankings.getSortedRanking(
+  const document = await sortedRankings.getSortedRankings(
     contractAddress,
     startIndexNumber,
     PAGE_COUNT
   );
-  const totalSupply = document?.contractMetadata?.totalSupply
-    ? parseInt(document.contractMetadata.totalSupply)
+
+  if (document === null) {
+    throw new Error(
+      'Document returned null when trying to get a sorted ranking from the DB'
+    );
+  }
+
+  const totalSupply = currentRanking.contractMetadata.totalSupply
+    ? parseInt(currentRanking.contractMetadata.totalSupply)
     : undefined;
 
   if (totalSupply !== undefined) {
@@ -27,7 +43,7 @@ export default async function getSortedRankingHandler(
 
     return {
       nfts: document?.sortedRanking ?? [],
-      nextIndex: nextIndex <= totalSupply ? nextIndex : undefined,
+      nextIndex: nextIndex < totalSupply ? nextIndex : undefined,
     };
   }
 

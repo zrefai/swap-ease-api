@@ -1,6 +1,6 @@
 import express from 'express';
 import morgan from 'morgan';
-import Router from '../routes';
+import Router from '@server/routes';
 
 const createServer = (): express.Application => {
   const app = express();

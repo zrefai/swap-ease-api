@@ -1,4 +1,4 @@
-import { NFTAttribute } from '../alchemy-api/models/nft';
+import { NFTAttribute } from '@server/alchemy-api/models/nft';
 
 export interface NFTRank {
   tokenId: string;
