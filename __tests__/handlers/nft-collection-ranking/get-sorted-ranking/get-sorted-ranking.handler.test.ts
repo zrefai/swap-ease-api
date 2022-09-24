@@ -1,12 +1,12 @@
 import { NFTContractMetadata } from '@server/alchemy-api/models/nft';
 import rankings from '@server/data/rankings';
 import sortedRankings from '@server/data/sorted-rankings';
+import getSortedRankingHandler, {
+  NFTSortedRankingResponse,
+} from '@server/handlers/nft-collection-ranking/get-sorted-ranking/get-sorted-ranking.handler';
 import { NFTCollectionRanking } from '@server/models/nft-collection-ranking';
 import { NFTSortedRanking } from '@server/models/nft-sorted-ranking';
 import { WithId } from 'mongodb';
-import getSortedRankingHandler, {
-  NFTSortedRankingResponse,
-} from './get-sorted-ranking.handler';
 
 jest.mock('@server/data/rankings');
 const rankingFindOneMock = rankings.findOne as jest.Mock;
@@ -25,22 +25,26 @@ const currentRankingMock: Partial<WithId<NFTCollectionRanking>> = {
   contractMetadata: contractMetadataMock,
 };
 
-const currentDocument: WithId<NFTSortedRanking> = {
+const currentDocument = {
   _id: 'contract_address',
   contractAddress: 'contract_address',
   sortedRanking: [
     {
       tokenId: '1',
-      score: 0.09,
-      attributes: [{ trait_type: 'coat', value: 'fur' }],
+      totalScore: 0.09,
+      metadata: {
+        attributes: [{ trait_type: 'coat', value: 'fur', score: 0 }],
+      },
     },
     {
       tokenId: '1',
-      score: 0.1,
-      attributes: [{ trait_type: 'coat', value: 'sig' }],
+      totalScore: 0.1,
+      metadata: {
+        attributes: [{ trait_type: 'coat', value: 'sig', score: 0 }],
+      },
     },
   ],
-};
+} as WithId<NFTSortedRanking>;
 
 const PAGE_COUNT = 30;
 

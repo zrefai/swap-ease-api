@@ -8,4 +8,4 @@ process.env = {
   MONGO_DB_NAME: 'swapEase',
 };
 
-jest.mock('./src/config/swap-ease-db-client', () => jest.fn());
+jest.mock('@server/config/swap-ease-db-client', () => jest.fn());

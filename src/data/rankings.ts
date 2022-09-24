@@ -27,7 +27,6 @@ export const updateOne = async (
     {
       $set: {
         traits: document.traits,
-        traitScores: document.traitScores,
         accuracy: document.accuracy,
         dateUpdatedUtc: new Date(),
       },

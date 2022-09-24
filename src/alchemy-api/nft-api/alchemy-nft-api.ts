@@ -77,6 +77,8 @@ export default class AlchemyNFTApi implements IAlchemyNFTApi {
       callback
     );
 
+    // This should not be undefined, chunk of nfts don't exist
+
     return getNFTsForCollectionMapper(response, withMetadata);
   }
 
@@ -110,6 +112,9 @@ export default class AlchemyNFTApi implements IAlchemyNFTApi {
 
     const response: NFTResponse = await callWithRetry(callback);
 
+    // This should be okay to return as undefined, maybe can have it run again at some point
+    // Return empty NFT if undefined, let it parse through with empty info
+    // Then let it re-run in the function for createRanking
     if (response === undefined) {
       throw new Error(
         `NFT metadata came back as undefined -- contractAddress: ${contractAddress}, tokenId: ${tokenId}`

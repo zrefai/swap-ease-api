@@ -1,7 +1,7 @@
-import { NFT, NFTMetadata } from '../../models/nft';
-import { NFTResponse } from '../../models/responses/nft-response';
-import { TokenType } from '../alchemy-nft-api.interfaces';
-import { getNFTMetadataMapper } from './get-nft-metadata-mapper';
+import { NFT, NFTMetadata } from '@server/alchemy-api/models/nft';
+import { NFTResponse } from '@server/alchemy-api/models/responses/nft-response';
+import { TokenType } from '@server/alchemy-api/nft-api/alchemy-nft-api.interfaces';
+import { getNFTMetadataMapper } from '@server/alchemy-api/nft-api/mappers/get-nft-metadata-mapper';
 
 const nftResponse: NFTResponse = {
   contract: {
@@ -33,6 +33,7 @@ const nftResponse: NFTResponse = {
     ],
     traits: undefined,
   },
+  media: undefined,
   error: undefined,
   timeLastUpdated: 'time',
   contractMetadata: {
@@ -199,6 +200,7 @@ describe('getNFTMetadataMapper', () => {
       },
       title: undefined,
       description: undefined,
+      media: undefined,
       tokenUri: {
         raw: undefined,
         gateway: undefined,

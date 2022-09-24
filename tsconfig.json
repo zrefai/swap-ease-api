@@ -20,9 +20,9 @@
     "strictNullChecks": true,
     "outDir": "./build",
     "baseUrl": ".",
-    "paths": { "@server/*": ["src/*"] }
+    "paths": { "@server/*": ["src/*"], "@tests/*": ["__tests__/*"] }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "__tests__/**/*"],
   "exclude": ["node_modules", "build"],
   "ts-node": {
     // Do not forget to `npm i -D tsconfig-paths`

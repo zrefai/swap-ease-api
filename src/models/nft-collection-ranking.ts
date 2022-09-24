@@ -7,5 +7,4 @@ export interface NFTCollectionRanking extends AuditModel {
   contractMetadata: NFTContractMetadata;
   accuracy: number;
   traits: { [key: string]: { [key: string]: number } };
-  traitScores: { [key: string]: { [key: string]: number } };
 }

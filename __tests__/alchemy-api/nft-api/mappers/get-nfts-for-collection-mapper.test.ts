@@ -1,8 +1,8 @@
-import { GetNFTsForCollectionResponse } from '../../models/responses/get-nfts-for-collection-response';
-import { getNFTMetadataMapper } from './get-nft-metadata-mapper';
-import { getNFTsForCollectionMapper } from './get-nfts-for-collection-mapper';
+import { GetNFTsForCollectionResponse } from '@server/alchemy-api/models/responses/get-nfts-for-collection-response';
+import { getNFTMetadataMapper } from '@server/alchemy-api/nft-api/mappers/get-nft-metadata-mapper';
+import { getNFTsForCollectionMapper } from '@server/alchemy-api/nft-api/mappers/get-nfts-for-collection-mapper';
 
-jest.mock('./get-nft-metadata-mapper');
+jest.mock('@server/alchemy-api/nft-api/mappers/get-nft-metadata-mapper');
 const getNFTDataMapperMock = getNFTMetadataMapper as jest.Mock;
 
 const nftCollectionResponseMock: GetNFTsForCollectionResponse = {

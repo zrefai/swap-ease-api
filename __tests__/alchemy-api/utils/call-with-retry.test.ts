@@ -1,7 +1,7 @@
+import callWithRetry from '@server/alchemy-api/utils/call-with-retry';
 import timer from '@server/utils/timer';
-import callWithRetry from './call-with-retry';
 
-jest.mock('../../utils/timer');
+jest.mock('@server/utils/timer');
 const timerMock = timer as jest.Mock;
 
 describe('callWithRetry', () => {

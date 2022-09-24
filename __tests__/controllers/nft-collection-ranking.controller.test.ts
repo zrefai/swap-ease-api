@@ -1,9 +1,9 @@
+import NFTCollectionRankingController from '@server/controllers/nft-collection-ranking.controller';
 import { NFTCollectionRankingResponse } from '@server/handlers/nft-collection-ranking/create-ranking/V1/create-ranking.handler';
 import createRankingV2Handler from '@server/handlers/nft-collection-ranking/create-ranking/V2/create-ranking-v2.handler';
 import getSortedRankingHandler, {
   NFTSortedRankingResponse,
 } from '@server/handlers/nft-collection-ranking/get-sorted-ranking/get-sorted-ranking.handler';
-import NFTCollectionRankingController from './nft-collection-ranking.controller';
 
 jest.mock(
   '@server/handlers/nft-collection-ranking/get-sorted-ranking/get-sorted-ranking.handler'

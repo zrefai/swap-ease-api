@@ -7,11 +7,23 @@ export default async function callWithRetry(
   depth = 0
 ): Promise<any> {
   try {
-    return await fn();
+    const result = await fn();
+
+    if (result === undefined) {
+      await timer(2 ** depth * 1000 + (Math.floor(Math.random() * 1000) + 1));
+      return await callWithRetry(fn, depth + 1);
+    }
+
+    return result;
   } catch (error) {
     if (depth > MAXIMUM_DEPTH) {
       throw new Error('Maximum depth exceeded for call with retry');
     }
+
+    // const errorCheck: any = error;
+    // if (errorCheck.code === 'ETIMEDOUT' || errorCheck.code === 'ECONNRESET') {
+    //   return await callWithRetry(fn, depth + 1);
+    // }
 
     const errorResponse = error as Response;
 
@@ -20,8 +32,9 @@ export default async function callWithRetry(
       return await callWithRetry(fn, depth + 1);
     }
 
-    throw new Error(
-      'Status code did not match specified policy, callWithRetry exited'
-    );
+    // console.log(error);
+    // throw new Error(
+    //   `Status code ${errorResponse.status} did not match specified policy, callWithRetry exited`
+    // );
   }
 }

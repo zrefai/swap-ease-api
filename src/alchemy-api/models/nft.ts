@@ -18,7 +18,7 @@ export interface NFTTokenUri {
 
 export interface NFTAttribute {
   trait_type: string;
-  value: string;
+  value: string | number;
 }
 
 export interface NFTMetadata {
