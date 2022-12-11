@@ -14,7 +14,6 @@ export default {
   //     },
   //   },
   collectCoverageFrom: [
-    // './__tests__/**/*.{js.jsx,ts,tsx}',
     './src/**/*.{ts,js}',
     '!./build/**/*',
     '!./jest.config.ts',
