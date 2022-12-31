@@ -7,7 +7,7 @@ import { Alchemy, Network, Nft, NftTokenType } from 'alchemy-sdk';
 import chunk from 'lodash.chunk';
 import { generateTraitsAndRankedNFTsV2 } from './generate-traits-and-ranked-nfts-v2';
 import { mergeSort } from '../merge-sort';
-import { NFTCollectionRankingResponse } from '../V1/create-ranking.handler';
+import { NFTCollectionRankingResponse } from '../V2/create-ranking-v2.handler';
 
 const NFT_CHUNK = 5;
 

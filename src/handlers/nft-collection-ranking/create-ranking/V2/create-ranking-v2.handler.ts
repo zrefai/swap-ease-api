@@ -5,15 +5,23 @@ import { TokenType } from '@server/alchemy-api/nft-api/alchemy-nft-api.interface
 import { rankingInsertOrUpdate } from '@server/data/helpers/ranking-insert-or-update';
 import rankings from '@server/data/rankings';
 import { NFTCollectionRanking } from '@server/models/nft-collection-ranking';
+import { NFTRank } from '@server/models/nft-rank';
 import { NFTSortedRanking } from '@server/models/nft-sorted-ranking';
 import timer from '@server/utils/timer';
 import chunk from 'lodash.chunk';
 import { generateTraitsAndRankedNFTs } from '../generate-traits-and-ranked-nfts';
 import { mergeSort } from '../merge-sort';
-import { NFTCollectionRankingResponse } from '../V1/create-ranking.handler';
 
 const COLLECTION_CHUNK = 5;
 const NFT_CHUNK = 5;
+
+export interface NFTCollectionRankingResponse {
+  contractAddress: string;
+  contractMetadata: NFTContractMetadata;
+  accuracy: number;
+  error: string | undefined;
+  sortedRanking: NFTRank[];
+}
 
 export default async function createRankingV2Handler(
   contractAddress: string
@@ -81,6 +89,7 @@ export default async function createRankingV2Handler(
     const accuracy = parseFloat(
       (((totalSupply - toRefetch.length) / totalSupply) * 100).toFixed(3)
     );
+
     if (accuracy < 95) {
       return {
         error: `Ranking accuracy was ${accuracy}\%. Should be at least 95\%. Please try to create a ranking at a later time`,
@@ -123,7 +132,7 @@ export default async function createRankingV2Handler(
 
     return {
       accuracy,
-      error: undefined,
+      error: undefined, // TODO: fill this error spot or remove
     } as NFTCollectionRankingResponse;
   }
 

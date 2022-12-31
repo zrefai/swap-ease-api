@@ -3,9 +3,12 @@ import { generateTraitsAndRankedNFTs } from '@server/handlers/nft-collection-ran
 import { collectionMock } from '@tests/mocks/get-collection-response-mock';
 import { NFTRank } from '@server/models/nft-rank';
 
+// TODO: could be valuable to do one for MEKA
+
 describe('generateTraitsAndRankedNFTs', () => {
   it('returns rankedNFTs', () => {
     const result = generateTraitsAndRankedNFTs(100, collectionMock);
+    console.log(JSON.stringify(result));
 
     const ranked1: NFTRank = {
       tokenUri: {
@@ -34,11 +37,11 @@ describe('generateTraitsAndRankedNFTs', () => {
           { trait_type: 'Clothes', value: 'Striped Tee', score: 50 },
           { trait_type: 'Mouth', value: 'Discomfort', score: 20 },
           { trait_type: 'Eyes', value: 'X Eyes', score: 33.333333333333336 },
+          { trait_type: 'Hat', value: null, score: 1.36986301369863 },
           { trait_type: 'trait_count', value: '6', score: 1.8867924528301885 },
-          { trait_type: 'Hat', value: null, score: 3.7037037037037033 },
         ],
       },
-      totalScore: 146.54287710891484,
+      totalScore: 144.20903641890976,
       tokenId: '0',
     };
 
@@ -107,12 +110,12 @@ describe('generateTraitsAndRankedNFTs', () => {
           },
           { trait_type: 'Hat', value: 'Bayc Hat Black', score: 100 },
           { trait_type: 'Mouth', value: 'Rage', score: 25 },
+          { trait_type: 'Earring', value: null, score: 3.7037037037037033 },
+          { trait_type: 'Clothes', value: null, score: 1.1363636363636365 },
           { trait_type: 'trait_count', value: '5', score: 3.571428571428571 },
-          { trait_type: 'Earring', value: null, score: 1.36986301369863 },
-          { trait_type: 'Clothes', value: null, score: 8.333333333333334 },
         ],
       },
-      totalScore: 182.08414872798434,
+      totalScore: 177.2210197210197,
       tokenId: '19',
     };
 
@@ -198,6 +201,8 @@ describe('generateTraitsAndRankedNFTs', () => {
       tokenId: '99',
     };
 
+    // Specific indexes from the result were picked to compare against
+    // This is why we have an index value here (to check specific indexes against the expected data above)
     const expectedResults = [
       { index: 0, nft: ranked1 },
       { index: 9, nft: ranked10 },
@@ -245,8 +250,8 @@ describe('generateTraitsAndRankedNFTs', () => {
     const expectedTraits: { [key: string]: { [key: string]: number } } = {
       trait_count: { '4': 1, '5': 28, '6': 53, '7': 18 },
       Earring: {
-        total_count: 27,
         'Silver Hoop': 7,
+        absent_count: 73,
         'Gold Stud': 7,
         'Silver Stud': 6,
         'Diamond Stud': 2,
@@ -254,7 +259,6 @@ describe('generateTraitsAndRankedNFTs', () => {
         'Gold Hoop': 3,
       },
       Background: {
-        total_count: 100,
         Orange: 15,
         Aquamarine: 13,
         Purple: 15,
@@ -265,7 +269,6 @@ describe('generateTraitsAndRankedNFTs', () => {
         'New Punk Blue': 9,
       },
       Fur: {
-        total_count: 100,
         Robot: 6,
         Cheetah: 6,
         'Golden Brown': 4,
@@ -286,9 +289,9 @@ describe('generateTraitsAndRankedNFTs', () => {
         White: 1,
       },
       Clothes: {
-        total_count: 88,
         'Striped Tee': 2,
         'Vietnam Jacket': 3,
+        absent_count: 12,
         'Bone Necklace': 4,
         'Navy Striped Tee': 8,
         'Bayc T Red': 4,
@@ -322,7 +325,6 @@ describe('generateTraitsAndRankedNFTs', () => {
         'Pimp Coat': 1,
       },
       Mouth: {
-        total_count: 100,
         Discomfort: 5,
         Grin: 10,
         'Bored Cigarette': 11,
@@ -346,7 +348,6 @@ describe('generateTraitsAndRankedNFTs', () => {
         'Bored Unshaven Kazoo': 1,
       },
       Eyes: {
-        total_count: 100,
         'X Eyes': 3,
         'Blue Beams': 1,
         '3d': 9,
@@ -371,7 +372,7 @@ describe('generateTraitsAndRankedNFTs', () => {
         Blindfold: 1,
       },
       Hat: {
-        total_count: 73,
+        absent_count: 27,
         "Sea Captain's Hat": 3,
         'Party Hat 2': 2,
         'Bayc Flipped Brim': 3,
@@ -402,7 +403,6 @@ describe('generateTraitsAndRankedNFTs', () => {
         'Sushi Chef Headband': 1,
       },
     };
-
     const expectedNFTTraitTypes = Object.keys(expectedTraits);
 
     Object.keys(result.traits).map((key, index) => {

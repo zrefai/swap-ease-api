@@ -44,7 +44,10 @@ export default class AlchemyNFTApi implements IAlchemyNFTApi {
 
     try {
       const response: GetContractMetadata =
-        await this.alchemySdk.getContractMetadata({ contractAddress });
+        await this.alchemySdk.getContractMetadata({
+          contractAddress,
+          apiKey: this.apiKey,
+        });
 
       return response;
     } catch (error) {

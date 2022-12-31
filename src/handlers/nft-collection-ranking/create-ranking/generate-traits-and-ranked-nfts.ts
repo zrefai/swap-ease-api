@@ -9,6 +9,16 @@ export function generateTraitsAndRankedNFTs(
   traits: { [key: string]: { [key: string]: number } };
 } {
   const nftCollection = [...collection];
+  const allTraitTypes = new Set();
+
+  // Retrieve all trait types from the collection
+  for (let i = 0; i < nftCollection.length; i++) {
+    for (let j = 0; j < nftCollection[i].metadata.attributes.length; j++) {
+      allTraitTypes.add(nftCollection[i].metadata.attributes[j].trait_type);
+    }
+  }
+
+  const traitTypes = Array.from(allTraitTypes) as string[];
   const traits: { [key: string]: { [key: string]: number } } = {
     trait_count: {},
   };
@@ -28,32 +38,45 @@ export function generateTraitsAndRankedNFTs(
       traits.trait_count[numberOfTraits] = 1;
     }
 
+    // Count all traits NFT does have
     for (let j = 0; j < nftTraits.length; j++) {
       const currentTrait = nftTraits[j];
       const currentValue = nftValues[j];
 
       if (traits[currentTrait]) {
         if (traits[currentTrait][currentValue]) {
-          traits[currentTrait].total_count += 1;
           traits[currentTrait][currentValue] += 1;
         } else {
-          traits[currentTrait].total_count += 1;
           traits[currentTrait][currentValue] = 1;
         }
       } else {
-        traits[currentTrait] = { total_count: 1 };
+        traits[currentTrait] = {};
         traits[currentTrait][currentValue] = 1;
       }
     }
+
+    // Count all traits NFT does not have
+    traitTypes
+      .filter((traitType) => !nftTraits.includes(traitType))
+      .forEach((absentTraitType) => {
+        if (traits[absentTraitType]) {
+          if (traits[absentTraitType].absent_count) {
+            traits[absentTraitType].absent_count += 1;
+          } else {
+            traits[absentTraitType].absent_count = 1;
+          }
+        } else {
+          traits[absentTraitType] = { absent_count: 1 };
+        }
+      });
   }
 
   const rankedNFTs: NFTRank[] = [];
-  const numberOfTraitTypes = Object.keys(traits);
 
   // Create score and store it
   for (let i = 0; i < nftCollection.length; i++) {
     const currentNFT = nftCollection[i];
-    let totalRarity = 0;
+    let totalScore = 0;
 
     if (currentNFT.metadata.attributes.length > 0) {
       const attributes = currentNFT.metadata.attributes;
@@ -70,10 +93,25 @@ export function generateTraitsAndRankedNFTs(
           value: attributes[j].value.toString(),
           score: rarityScore,
         });
-        totalRarity += rarityScore;
+        totalScore += rarityScore;
       }
 
-      // Push attribute for number of attributes
+      // Fill in attributes that are missing
+      const currentAttributeTypes = newAttributes.map((a) => a.trait_type);
+      traitTypes
+        .filter((trait_type) => !currentAttributeTypes.includes(trait_type))
+        .forEach((trait_type) => {
+          const rarityScoreNull =
+            1 / (traits[trait_type].absent_count / totalSupply);
+          newAttributes.push({
+            trait_type: trait_type,
+            value: null,
+            score: rarityScoreNull,
+          });
+          totalScore += rarityScoreNull;
+        });
+
+      // Push attribute for number of attributes (i.e trait_count)
       const rarityScoreForNumTraits =
         1 / (traits.trait_count[Object.keys(attributes).length] / totalSupply);
       newAttributes.push({
@@ -81,26 +119,7 @@ export function generateTraitsAndRankedNFTs(
         value: Object.keys(attributes).length.toString(),
         score: rarityScoreForNumTraits,
       });
-      totalRarity += rarityScoreForNumTraits;
-
-      // Fill in attributes that are missing
-      if (attributes.length < numberOfTraitTypes.length) {
-        const currentAttributeTypes = newAttributes.map((a) => a.trait_type);
-        const absentTypes = numberOfTraitTypes.filter(
-          (trait_type) => !currentAttributeTypes.includes(trait_type)
-        );
-
-        absentTypes.forEach((trait_type) => {
-          const rarityScoreNull =
-            1 / ((totalSupply - traits[trait_type].total_count) / totalSupply);
-          newAttributes.push({
-            trait_type: trait_type,
-            value: null,
-            score: rarityScoreNull,
-          });
-          totalRarity += rarityScoreNull;
-        });
-      }
+      totalScore += rarityScoreForNumTraits;
 
       const newRank: NFTRank = {
         tokenUri: {
@@ -115,7 +134,7 @@ export function generateTraitsAndRankedNFTs(
           description: currentNFT.metadata.description,
           attributes: newAttributes,
         },
-        totalScore: totalRarity,
+        totalScore,
         tokenId: parseInt(currentNFT.id.tokenId, 16).toString(),
       };
 
@@ -134,7 +153,7 @@ export function generateTraitsAndRankedNFTs(
           description: currentNFT.metadata.description,
           attributes: [],
         },
-        totalScore: totalRarity,
+        totalScore: totalScore,
         tokenId: parseInt(currentNFT.id.tokenId, 16).toString(),
       };
 
