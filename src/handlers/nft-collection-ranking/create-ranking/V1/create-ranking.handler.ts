@@ -1,15 +1,15 @@
-import {
-  // NFT,
-  // NFTAttribute,
-  NFTContractMetadata,
-} from '@server/alchemy-api/models/nft';
-// import AlchemyNFTApi from '@server/alchemy-api/nft-api/alchemy-nft-api';
-// import { TokenType } from '@server/alchemy-api/nft-api/alchemy-nft-api.interfaces';
-// import rankings from '@server/data/rankings';
-// import { NFTCollectionRanking } from '@server/models/nft-collection-ranking';
+import { NFT, NFTContractMetadata } from '@server/alchemy-api/models/nft';
+import rankings from '@server/data/rankings';
+import AlchemyNFTApi from '@server/alchemy-api/nft-api/alchemy-nft-api';
+import { TokenType } from '@server/alchemy-api/nft-api/alchemy-nft-api.interfaces';
+import { rankingInsertOrUpdate } from '@server/data/helpers/ranking-insert-or-update';
+import { NFTCollectionRanking } from '@server/models/nft-collection-ranking';
 import { NFTRank } from '@server/models/nft-rank';
-// import timer from '@server/utils/timer';
-// import { mergeSort } from '../merge-sort';
+import { NFTSortedRanking } from '@server/models/nft-sorted-ranking';
+import timer from '@server/utils/timer';
+import { generateTraitsAndRankedNFTs } from '../generate-traits-and-ranked-nfts';
+import { mergeSort } from '../merge-sort';
+import { refetchMissingNFTs } from '../refetch-missing-nfts';
 
 export interface NFTCollectionRankingResponse {
   contractAddress: string;
@@ -19,154 +19,130 @@ export interface NFTCollectionRankingResponse {
   sortedRanking: NFTRank[];
 }
 
-// export default async function createRankingHandler(
-//   contractAddress: string
-// ): Promise<NFTCollectionRankingResponse> {
-//   const alchemyNftApi = new AlchemyNFTApi();
+export default async function createRankingHandlerV1(
+  contractAddress: string
+): Promise<NFTCollectionRankingResponse> {
+  const currentRanking = await rankings.findOne(contractAddress);
 
-//   const currentNfts = await alchemyNftApi.getNFTsForCollection({
-//     contractAddress,
-//   });
-//   const collection = [...currentNfts.nfts];
+  if (currentRanking?.accuracy === 100) {
+    return {
+      error:
+        'Accuracy is already at 100% for this collection, no need to re-rank this collection',
+    } as NFTCollectionRankingResponse;
+  }
 
-//   let nextToken: string | undefined = currentNfts.nextToken;
+  const alchemyNFTApi = new AlchemyNFTApi();
 
-//   // Retrieve all nfts in a collection
-//   while (nextToken != undefined) {
-//     const nextNfts = await alchemyNftApi.getNFTsForCollection({
-//       contractAddress,
-//       startToken: nextToken,
-//     });
+  const currentNfts = await alchemyNFTApi.getNFTsForCollection({
+    contractAddress,
+  });
 
-//     collection.push(...nextNfts.nfts);
+  const nfts: { [key: string]: NFT } = {};
+  const idsToRefetch: string[] = [];
 
-//     nextToken = nextNfts.nextToken;
+  currentNfts.nfts.forEach((nft) => {
+    nfts[nft.id.tokenId] = nft;
 
-//     await timer(1000);
-//   }
+    if (nft.metadata.attributes.length === 0) {
+      idsToRefetch.push(nft.id.tokenId);
+    }
+  });
 
-//   console.log('Collection retrieved');
+  let nextToken: string | undefined = currentNfts.nextToken;
 
-//   const traits: { [key: string]: number } = {};
+  // Retrieve all nfts in a collection
+  while (nextToken != undefined) {
+    const nextNfts = await alchemyNFTApi.getNFTsForCollection({
+      contractAddress,
+      startToken: nextToken,
+    });
 
-//   const totalSupply = collection.length;
-//   let validNfts = totalSupply;
+    nextNfts.nfts.forEach((nft) => {
+      nfts[nft.id.tokenId] = nft;
 
-//   for (let i = 0; i < collection.length; ++i) {
-//     const nft = collection[i];
+      if (nft.metadata.attributes.length === 0) {
+        idsToRefetch.push(nft.id.tokenId);
+      }
+    });
 
-//     if (nft.metadata.attributes.length > 0) {
-//       nft.metadata.attributes.forEach((attribute: NFTAttribute) => {
-//         if (attribute.value in traits) {
-//           traits[attribute.value] += 1;
-//         } else {
-//           traits[attribute.value] = 1;
-//         }
-//       });
-//     } else {
-//       const updatedNFT = await alchemyNftApi.getNFTMetadata({
-//         contractAddress: nft.contract?.address,
-//         tokenId: nft.id.tokenId,
-//         tokenType: nft.id.tokenMetadata.tokenType as TokenType,
-//       });
-//       if (nft.metadata.attributes.length > 0) {
-//         updatedNFT.metadata.attributes.forEach((attribute: NFTAttribute) => {
-//           if (attribute.value in traits) {
-//             traits[attribute.value] += 1;
-//           } else {
-//             traits[attribute.value] = 1;
-//           }
-//         });
-//       } else {
-//         validNfts -= 1;
-//       }
-//       await timer(1000);
-//     }
+    nextToken = nextNfts.nextToken;
 
-//     if (i % 1000 === 0) {
-//       console.log(`Processed ${i} out of ${totalSupply} NFTs`);
-//     }
-//   }
+    await timer(1000);
+  }
 
-//   console.log('Traits created');
+  const totalSupply = Object.keys(nfts).length;
 
-//   const accuracy = (validNfts / totalSupply) * 100;
-//   if (accuracy < 95) {
-//     return {
-//       error: `Ranking accuracy was ${accuracy}. Should be at least 95. Please try to create a ranking at a later time`,
-//     } as NFTCollectionRankingResponse;
-//   }
+  console.log('Valid Collection NFTs:', totalSupply - idsToRefetch.length);
 
-//   const traitScores: { [key: string]: number } = {};
+  const validCollectionNFTs =
+    ((totalSupply - idsToRefetch.length) / totalSupply) * 100;
+  if (validCollectionNFTs < 70) {
+    return {
+      error: `Accuracy for fetched collection NFTs was ${validCollectionNFTs}\%, should be over 70%. Please try to create a ranking at a later time.`,
+    } as NFTCollectionRankingResponse;
+  }
 
-//   // Create score for each trait
-//   Object.keys(traits).forEach((key: string) => {
-//     traitScores[key] = 1 / (traits[key] / totalSupply);
-//   });
+  const tokenType = Object.values(nfts)[0].id.tokenMetadata.tokenType;
 
-//   const sortedRanking = assignAndSort(traitScores, collection);
+  const { collection, toRefetch } = await refetchMissingNFTs(
+    contractAddress,
+    idsToRefetch,
+    tokenType as TokenType,
+    alchemyNFTApi,
+    nfts
+  );
 
-//   const contractMetadataResponse = collection[0].contractMetadata;
-//   const contractMetadata: NFTContractMetadata = {
-//     name: contractMetadataResponse?.name,
-//     symbol: contractMetadataResponse?.symbol,
-//     tokenType: contractMetadataResponse?.tokenType,
-//     totalSupply: totalSupply.toString(),
-//   };
+  console.log(
+    'Valid Collection NFTs after refetch:',
+    totalSupply - toRefetch.length
+  );
 
-//   const newNFTCollectionRanking: Partial<NFTCollectionRanking> = {
-//     contractAddress,
-//     contractMetadata,
-//     accuracy,
-//     // traits,
-//     // traitScores,
-//     // sortedRanking,
-//   };
+  const accuracy = parseFloat(
+    (((totalSupply - toRefetch.length) / totalSupply) * 100).toFixed(3)
+  );
 
-//   const isInserted = await rankings.insertOne(
-//     newNFTCollectionRanking as NFTCollectionRanking
-//   );
+  if (accuracy < 95) {
+    return {
+      error: `Ranking accuracy was ${accuracy}\%. Should be at least 95\%. Please try to create a ranking at a later time`,
+    } as NFTCollectionRankingResponse;
+  }
 
-//   if (!isInserted) {
-//     return {
-//       error: `Could not add new collection ranking for ${contractMetadata?.name}: ${accuracy}% accuracy`,
-//     } as NFTCollectionRankingResponse;
-//   }
+  const { rankedNFTs, traits } = generateTraitsAndRankedNFTs(
+    totalSupply,
+    collection
+  );
 
-//   return {
-//     contractAddress,
-//     contractMetadata,
-//     accuracy,
-//     error: undefined,
-//     sortedRanking: sortedRanking.slice(0, 30),
-//   } as NFTCollectionRankingResponse;
-// }
+  const sortedRanking = mergeSort(rankedNFTs);
 
-// function assignAndSort(
-//   traitScores: { [key: string]: number },
-//   fullCollection: NFT[]
-// ): NFTRank[] {
-//   const assignedNftScores: NFTRank[] = fullCollection.map((nft: NFT) => {
-//     if (nft.metadata.attributes.length > 0) {
-//       return {
-//         metdata: {},
-//         tokenId: parseInt(nft.id.tokenId, 16).toString(),
-//         totalScore: nft.metadata.attributes.reduce(
-//           (prev: number, curr: Record<string, any>) => {
-//             return prev + traitScores[curr.value];
-//           },
-//           0
-//         ),
-//         attributes: nft.metadata.attributes,
-//       };
-//     }
-//     return {
-//       metdata: {},
-//       tokenId: parseInt(nft.id.tokenId, 16).toString(),
-//       totalScore: 0,
-//       attributes: [],
-//     };
-//   });
+  const contractMetadataResponse = Object.values(nfts)[0].contractMetadata;
+  const contractMetadata: NFTContractMetadata = {
+    name: contractMetadataResponse?.name,
+    symbol: contractMetadataResponse?.symbol,
+    tokenType: contractMetadataResponse?.tokenType,
+    totalSupply: totalSupply.toString(),
+  };
 
-//   return mergeSort(assignedNftScores);
-// }
+  const newNFTCollectionRanking: Partial<NFTCollectionRanking> = {
+    contractAddress,
+    contractMetadata,
+    accuracy,
+    traits,
+  };
+
+  const newSortedRanking: NFTSortedRanking = {
+    _id: contractAddress,
+    contractAddress,
+    sortedRanking,
+  };
+
+  await rankingInsertOrUpdate(
+    currentRanking,
+    newNFTCollectionRanking as NFTCollectionRanking,
+    newSortedRanking
+  );
+
+  return {
+    accuracy,
+    error: undefined, // TODO: fill this error spot or remove
+  } as NFTCollectionRankingResponse;
+}
