@@ -1,8 +1,31 @@
+# SwapEase API
+
+This repository is the backend of the SwapEase experience.
+
+List of capabilities:
+
+- Ranking an NFT collection
+- Retrieving results from a ranked collection
+
+Future endeavors:
+
+- Retrieving clusters from a ranked collection
+- Token to Token trading
+- Value prediction
+
+### Installing dependencies
+
+Run `yarn` to install all dependencies
+
+### Spinning up the project
+
 Run `yarn build` to build the project
 
-Run `yarn dev`, it should fail because DB isnt setup
+Run `yarn dev` to start the server
 
-## Scoring Algorithm
+There is an associated postman collection to use the endpoints.
+
+### Scoring Algorithm
 
 ![picture](./public/scoring_algo.png)
 
