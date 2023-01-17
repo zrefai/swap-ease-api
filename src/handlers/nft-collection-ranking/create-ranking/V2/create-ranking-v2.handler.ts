@@ -11,9 +11,10 @@ import timer from '@server/utils/timer';
 import chunk from 'lodash.chunk';
 import { generateTraitsAndRankedNFTs } from '../generate-traits-and-ranked-nfts';
 import { mergeSort } from '../merge-sort';
+import { refetchMissingNFTs } from '../refetch-missing-nfts';
+import createRankingHandlerV1 from '../V1/create-ranking.handler';
 
 const COLLECTION_CHUNK = 5;
-const NFT_CHUNK = 5;
 
 export interface NFTCollectionRankingResponse {
   contractAddress: string;
@@ -136,15 +137,22 @@ export default async function createRankingV2Handler(
     } as NFTCollectionRankingResponse;
   }
 
-  // TODO: Switch to v1 if total supply is not available
-  return {} as NFTCollectionRankingResponse;
+  return await createRankingHandlerV1(contractAddress);
 }
 
+/**
+ * Uses totalSupply to create an array getNFTsForCollection promises (totalSupply / 100 = number of getNFTsForCollection promises).
+ * These promises are then grouped into chunks of COLLECTION_CHUNK. Promises grouped like this will be used for batch requests.
+ * @param contractAddress
+ * @param totalSupply
+ * @param api
+ * @returns Grouped getNFTsForCollection promises
+ */
 function batchCollectionPromises(
   contractAddress: string,
   totalSupply: number,
   api: AlchemyNFTApi
-) {
+): Promise<GetNFTsForCollection>[][] {
   const promises: Promise<GetNFTsForCollection>[] = [];
 
   for (let i = 1; i < totalSupply; i += 100) {
@@ -160,28 +168,12 @@ function batchCollectionPromises(
   return chunk(promises, COLLECTION_CHUNK);
 }
 
-function batchNFTMetadataPromises(
-  contractAddress: string,
-  tokenType: TokenType,
-  tokenIds: string[],
-  api: AlchemyNFTApi
-) {
-  const promises: Promise<NFT>[] = [];
-
-  for (let i = 0; i < tokenIds.length; ++i) {
-    async function requestNFTMetadata() {
-      return await api.getNFTMetadata({
-        contractAddress,
-        tokenId: tokenIds[i],
-        tokenType,
-      });
-    }
-    promises.push(requestNFTMetadata());
-  }
-
-  return chunk(promises, NFT_CHUNK);
-}
-
+/**
+ * We resolve all of the chunked promises, format the data using a dictionary. The key-value pair in the dictionary is
+ * tokenId-NFT
+ * @param chunkedPromises
+ * @returns Dictionary of NFT collection data
+ */
 async function resolveCollectionPromises(
   chunkedPromises: Promise<GetNFTsForCollection>[][]
 ): Promise<{ [key: string]: NFT }> {
@@ -208,69 +200,12 @@ async function resolveCollectionPromises(
   return reducedNFTs;
 }
 
-async function refetchMissingNFTs(
-  contractAddress: string,
-  idsToRefetch: string[],
-  tokenType: TokenType,
-  alchemyNFTApi: AlchemyNFTApi,
-  nfts: {
-    [key: string]: NFT;
-  }
-) {
-  const collection = { ...nfts };
-
-  let toRefetch = [...idsToRefetch];
-  let depth = 0;
-  let batchedNFTsToRefetch = batchNFTMetadataPromises(
-    contractAddress,
-    tokenType as TokenType,
-    toRefetch,
-    alchemyNFTApi
-  );
-
-  do {
-    // Loop through the batched Promises
-    for (let i = 0; i < batchedNFTsToRefetch.length; ++i) {
-      const resolvedChunk = await Promise.all(batchedNFTsToRefetch[i]);
-
-      // Loop through resolved NFT chunk
-      resolvedChunk.forEach((nft: NFT) => {
-        if (nft.metadata.attributes.length > 0) {
-          // Re-assign valid NFT to collection
-          collection[nft.id.tokenId] = nft;
-
-          // Remove valid tokenId
-          const tokenIndex = toRefetch.indexOf(nft.id.tokenId);
-          if (tokenIndex > -1) {
-            toRefetch.splice(tokenIndex, 1);
-          }
-        }
-      });
-    }
-
-    if (toRefetch.length === 0) {
-      break;
-    }
-
-    depth += 1;
-    batchedNFTsToRefetch = batchNFTMetadataPromises(
-      contractAddress,
-      tokenType as TokenType,
-      toRefetch,
-      alchemyNFTApi
-    );
-  } while (depth < 3);
-
-  return {
-    collection: Object.values(collection),
-    toRefetch,
-  };
-}
-
-function getNFTsToRefetch(
-  // totalSupply: number,
-  collection: { [key: string]: NFT }
-): string[] {
+/**
+ * Goes through the list of NFTs and searches for NFTs that have missing attribute data
+ * @param collection
+ * @returns A list of token ids that do not have attributes
+ */
+function getNFTsToRefetch(collection: { [key: string]: NFT }): string[] {
   const idsToRefetch: string[] = [];
 
   // Count traits, accuracy, and nfts to refetch
