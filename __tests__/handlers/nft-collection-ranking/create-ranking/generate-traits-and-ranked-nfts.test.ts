@@ -8,7 +8,6 @@ import { NFTRank } from '@server/models/nft-rank';
 describe('generateTraitsAndRankedNFTs', () => {
   it('returns rankedNFTs', () => {
     const result = generateTraitsAndRankedNFTs(100, collectionMock);
-    console.log(JSON.stringify(result));
 
     const ranked1: NFTRank = {
       tokenUri: {
@@ -37,11 +36,11 @@ describe('generateTraitsAndRankedNFTs', () => {
           { trait_type: 'Clothes', value: 'Striped Tee', score: 50 },
           { trait_type: 'Mouth', value: 'Discomfort', score: 20 },
           { trait_type: 'Eyes', value: 'X Eyes', score: 33.333333333333336 },
-          { trait_type: 'Hat', value: null, score: 1.36986301369863 },
+          { trait_type: 'Hat', value: null, score: 3.7037037037037033 },
           { trait_type: 'trait_count', value: '6', score: 1.8867924528301885 },
         ],
       },
-      totalScore: 144.20903641890976,
+      totalScore: 146.54287710891484,
       tokenId: '0',
     };
 
@@ -110,12 +109,12 @@ describe('generateTraitsAndRankedNFTs', () => {
           },
           { trait_type: 'Hat', value: 'Bayc Hat Black', score: 100 },
           { trait_type: 'Mouth', value: 'Rage', score: 25 },
-          { trait_type: 'Earring', value: null, score: 3.7037037037037033 },
-          { trait_type: 'Clothes', value: null, score: 1.1363636363636365 },
+          { trait_type: 'Earring', value: null, score: 1.36986301369863 },
+          { trait_type: 'Clothes', value: null, score: 8.333333333333334 },
           { trait_type: 'trait_count', value: '5', score: 3.571428571428571 },
         ],
       },
-      totalScore: 177.2210197210197,
+      totalScore: 182.08414872798434,
       tokenId: '19',
     };
 
